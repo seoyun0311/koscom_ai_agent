@@ -156,7 +156,16 @@ TOOL_MAP = {
 
     # 리스크 분석
     "get_bank_risk_score": lambda params: run_async(get_bank_risk_score(**params)),
-    "run_bank_stress_test": lambda params: run_async(run_bank_stress_test(**params)),
+    "run_bank_stress_test": lambda params: run_async(
+        run_bank_stress_test(
+            exposures=params.get("exposures", []),
+            scenario=params.get("scenario", {
+                "bank_liquidity_shock": {},
+                "daily_runoff_rate": 0.10,
+                "interest_shock_bps": 0.0
+            })
+        )
+    ),
     "suggest_bank_rebalance": lambda params: run_async(suggest_bank_rebalance(**params)),
 
     # DART 재무제표

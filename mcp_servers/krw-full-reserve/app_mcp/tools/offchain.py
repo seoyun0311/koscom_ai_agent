@@ -22,7 +22,7 @@ def get_offchain_reserves(
     institution_filter: Optional[str] = None
 ) -> Optional[OffChainReserves]:
     """
-    오프체인 준비금 조회 (백엔드 API 실시간 데이터)
+    오프체인 준비금 조회 
     
     Args:
         refresh: True일 경우 최신 데이터 조회 (기본값: True - 실시간)
@@ -30,7 +30,7 @@ def get_offchain_reserves(
         institution_filter: 특정 기관만 조회 (현재는 전체 조회만 지원)
     
     Returns:
-        OffChainReserves: 금융기관 담보 데이터 (백엔드 API에서 가져옴)
+        OffChainReserves: 금융기관 담보 데이터 
     
     Examples:
         >>> reserves = get_offchain_reserves()

@@ -121,12 +121,29 @@ def _split_auto_maturity(
 # Payload → BankExposureInput 변환 (🔥 role 처리 수정)
 # ──────────────────────────────────────
 
-def _parse_exposures_payload(payload: Dict[str, Any]) -> List[BankExposureInput]:
-
+def _parse_exposures_payload(payload: Any) -> List[BankExposureInput]:
+    """
+    🔥 문자열 JSON 또는 dict를 유연하게 처리
+    """
+    # 🔥 문자열로 온 경우 JSON 파싱
+    if isinstance(payload, str):
+        import json
+        try:
+            payload = json.loads(payload)
+        except json.JSONDecodeError:
+            logger.error(f"Invalid JSON string: {payload}")
+            return []
+    
     if not payload:
         return []
 
-    items = payload.get("exposures")
+    # 🔥 이미 list인 경우 (exposures 키 없이 바로 배열)
+    if isinstance(payload, list):
+        items = payload
+    else:
+        # dict인 경우 exposures 키에서 추출
+        items = payload.get("exposures")
+    
     if isinstance(items, list):
         result: List[BankExposureInput] = []
 
@@ -167,7 +184,7 @@ def _parse_exposures_payload(payload: Dict[str, Any]) -> List[BankExposureInput]
 
         return result
 
-    # UI 구조 (banks)
+    # UI 구조 (banks) - 기존 로직 유지
     banks = payload.get("banks", [])
     result = []
 
@@ -205,7 +222,6 @@ def _parse_exposures_payload(payload: Dict[str, Any]) -> List[BankExposureInput]
         )
 
     return result
-
 
 # ──────────────────────────────────────
 # MCP Tools
