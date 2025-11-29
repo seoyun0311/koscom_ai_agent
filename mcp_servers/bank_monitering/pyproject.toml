@@ -1,0 +1,15 @@
+[project]
+name = "bank-monitoring"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+dependencies = [
+  "httpx",
+  "load-dotenv>=0.1.0",
+  "mcp[cli]>=1.2.0",
+  "python-dotenv>=1.2.1",
+]
+
+[tool.uv]
+environment-path = ".mcpenv313"
+dev-dependencies = []

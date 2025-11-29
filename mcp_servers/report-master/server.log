@@ -1,0 +1,22 @@
+C:\mcp\mcp_server.py:72: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+C:\mcp\mcp_server.py:107: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+INFO:     Will watch for changes in these directories: ['C:\\mcp']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [20352] using StatReload
+INFO:     Started server process [14212]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+[Slack-HR] Report file not ready: 
+INFO:     127.0.0.1:50848 - "POST /mcp/run?period=2025-10 HTTP/1.1" 200 OK

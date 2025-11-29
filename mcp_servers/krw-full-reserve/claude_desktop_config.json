@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "krws-reserve-verification": {
+      "command": "C:\\Users\\tjdbs\\Documents\\stable-coin\\.venv\\Scripts\\python.exe",
+      "args": ["C:\\Users\\tjdbs\\Documents\\stable-coin\\mcp_server.py"],
+      "cwd": "C:\\Users\\tjdbs\\Documents\\stable-coin",
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    }
+  }
+}

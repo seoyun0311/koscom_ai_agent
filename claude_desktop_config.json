@@ -1,0 +1,34 @@
+{
+  "mcpServers": {
+    "krws-reserve-verification": {
+      "command": "C:\\Users\\leedowon\\koscom_ai_agent\\venv\\Scripts\\python.exe",
+      "args": [
+        "C:\\Users\\leedowon\\koscom_ai_agent\\mcp_servers\\krw-full-reserve\\mcp_server.py"
+      ],
+      "cwd": "C:\\Users\\leedowon\\koscom_ai_agent\\mcp_servers\\krw-full-reserve",
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
+    "bank-monitoring": {
+      "command": "C:\\Users\\leedowon\\koscom_ai_agent\\venv\\Scripts\\python.exe",
+      "args": [
+        "C:\\Users\\leedowon\\koscom_ai_agent\\mcp_servers\\bank_monitering\\mcp_server.py"
+      ],
+      "cwd": "C:\\Users\\leedowon\\koscom_ai_agent\\mcp_servers\\bank_monitering",
+      "env": {
+        "PYTHONUNBUFFERED": "1",
+        "PYTHONPATH": "C:\\Users\\leedowon\\koscom_ai_agent\\mcp_servers\\bank_monitering;C:\\Users\\leedowon\\koscom_ai_agent\\mcp_servers\\koscom_audit\\.venv\\Lib\\site-packages"
+      }
+    },
+    "koscom-audit": {
+      "command": "C:\\Users\\leedowon\\koscom_ai_agent\\mcp_servers\\koscom_audit\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "servers.mcp_koscom"],
+      "cwd": "C:\\Users\\leedowon\\koscom_ai_agent\\mcp_servers\\koscom_audit",
+      "env": {
+        "PYTHONUNBUFFERED": "1",
+        "PYTHONPATH": "C:\\Users\\leedowon\\koscom_ai_agent\\mcp_servers\\koscom_audit"
+      }
+    }
+  }
+}

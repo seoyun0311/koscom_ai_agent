@@ -1,0 +1,2158 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>K-WON Stablecoin Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- 마크다운 렌더링 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- Chart.js for Pie Chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        --primary-orange: #ff6b35;
+        --light-orange: #ff8c42;
+        --dark-bg: #0a0a0a;
+        --card-bg: #161616;
+        --card-hover: #1f1f1f;
+        --border-color: #303030;
+        --text-primary: #ffffff;
+        --text-secondary: #b0b0b0;
+        --text-muted: #707070;
+        --success: #00e676;
+        --danger: #ff4757;
+        --warning: #ffa502;
+
+        /* 클로드 스타일 채팅 컬러 */
+        --chat-bg: #f5f5f0;
+        --chat-user-bg: #4a4a4a;
+        --chat-assistant-bg: #ffffff;
+        --chat-text: #2c2c2c;
+        --chat-text-secondary: #666666;
+        --chat-border: #e0e0dc;
+        --chat-input-bg: #ffffff;
+        --chat-header-bg: #ffffff;
+      }
+
+      body {
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+        background: var(--dark-bg);
+        color: var(--text-primary);
+        line-height: 1.6;
+        padding: 0;
+        margin: 0;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      /* Resizer 스타일 */
+      .resizer {
+        width: 5px;
+        background: transparent;
+        cursor: col-resize;
+        position: relative;
+        flex-shrink: 0;
+        transition: background 0.2s ease;
+      }
+
+      .resizer:hover {
+        background: var(--primary-orange);
+      }
+
+      .resizer::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -2px;
+        right: -2px;
+        bottom: 0;
+        cursor: col-resize;
+      }
+
+      .resizer.dragging {
+        background: var(--primary-orange);
+      }
+
+      /* Main Layout */
+      .main-container {
+        display: flex;
+        height: 100vh;
+        width: 100%;
+      }
+
+      /* Left Panel - Dashboard */
+      .dashboard-panel {
+        flex: 1;
+        overflow-y: auto;
+        border-right: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Right Panel - Claude Chat */
+      .chat-panel {
+        width: 420px;
+        display: flex;
+        flex-direction: column;
+        background: var(--chat-bg);
+        border-left: 1px solid var(--chat-border);
+      }
+
+      /* Dashboard Content */
+      .dashboard-content {
+        padding: 20px;
+        max-width: 1800px;
+        margin: 0 auto;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+
+      /* Header */
+      .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border-color);
+        flex-shrink: 0;
+      }
+
+      .logo-section {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .logo-icon {
+        width: 32px;
+        height: 32px;
+        background: var(--primary-orange);
+        border-radius: 2px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      .logo-text h1 {
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+        color: var(--text-primary);
+      }
+
+      .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 14px;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 2px;
+      }
+
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--success);
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      .status-text {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      /* Main Content Grid - 2x2 Layout */
+      .content-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        gap: 12px;
+        flex: 1;
+        min-height: 0;
+        margin-bottom: 12px;
+      }
+
+      /* 🔥 Off-Chain Reserves - 2행 전체 차지, 빈 공간 없이 확장 */
+      .content-card.offchain-card {
+        grid-row: 1 / 3;
+        grid-column: 2;
+        height: 100%;
+      }
+
+      /* Card Styles */
+      .content-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 0;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        transition: all 0.2s ease;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .content-card:hover {
+        border-color: var(--primary-orange);
+        background: var(--card-hover);
+      }
+
+      .card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid var(--border-color);
+        flex-shrink: 0;
+      }
+
+      .card-title-section {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .card-icon {
+        font-size: 18px;
+      }
+
+      .card-title {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text-primary);
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+      }
+
+      .card-value {
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+      }
+
+      .value-ok {
+        color: var(--success);
+      }
+      .value-warning {
+        color: var(--warning);
+      }
+      .value-danger {
+        color: var(--danger);
+      }
+
+      /* Data Rows */
+      .data-row {
+        padding: 14px 16px;
+        margin-bottom: 8px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border-color);
+        border-radius: 0;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+      }
+
+      .data-row:hover {
+        background: rgba(255, 107, 53, 0.08);
+        border-color: rgba(255, 107, 53, 0.4);
+      }
+
+      .data-label {
+        font-size: 10px;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 6px;
+        font-weight: 700;
+      }
+
+      .data-value {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--text-primary);
+        font-family: "Inter", monospace;
+        line-height: 1.2;
+      }
+
+      .data-subtitle {
+        font-size: 9px;
+        color: var(--text-muted);
+        margin-top: 4px;
+        line-height: 1.4;
+      }
+
+      /* Coverage Bar */
+      .coverage-bar {
+        width: 100%;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 0;
+        overflow: hidden;
+        margin-top: 10px;
+        border: 1px solid var(--border-color);
+      }
+
+      .coverage-fill {
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          var(--primary-orange),
+          var(--light-orange)
+        );
+        border-radius: 0;
+        transition: width 0.5s ease;
+        box-shadow: 0 0 12px rgba(255, 107, 53, 0.5);
+      }
+
+      /* Custodian List - 스크롤 가능 */
+      .custodian-list {
+        list-style: none;
+        margin-top: 10px;
+        overflow-y: auto;
+        flex: 1;
+        min-height: 0;
+      }
+
+      .custodian-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 16px;
+        margin-bottom: 10px;
+        background: rgba(255, 107, 53, 0.05);
+        border: 1px solid rgba(255, 107, 53, 0.2);
+        border-radius: 0;
+        transition: all 0.2s ease;
+      }
+
+      .custodian-item:hover {
+        background: rgba(255, 107, 53, 0.12);
+        border-color: var(--primary-orange);
+        transform: translateX(4px);
+      }
+
+      .custodian-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-primary);
+        letter-spacing: 0.3px;
+      }
+
+      .custodian-amount {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--primary-orange);
+        font-family: "Inter", monospace;
+      }
+
+      /* 🔥 Off-Chain Reserves 내부 버튼 */
+      .role-analysis-button {
+        width: 100%;
+        padding: 14px;
+        margin-top: 12px;
+        background: var(--primary-orange);
+        border: none;
+        color: white;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .role-analysis-button:hover {
+        background: var(--light-orange);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(255, 107, 53, 0.4);
+      }
+
+      /* Action Buttons */
+      .action-buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+
+      .action-card-compact {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 0;
+        padding: 16px;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        position: relative;
+      }
+
+      .action-card-compact:hover {
+        background: rgba(255, 107, 53, 0.08);
+        border-color: var(--primary-orange);
+      }
+
+      .action-icon-compact {
+        font-size: 28px;
+        flex-shrink: 0;
+      }
+
+      .action-content {
+        flex: 1;
+      }
+
+      .action-title-compact {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+      }
+
+      .action-description-compact {
+        font-size: 10px;
+        color: var(--text-secondary);
+        line-height: 1.4;
+      }
+
+      .action-button-small {
+        padding: 8px 16px;
+        background: var(--primary-orange);
+        color: white;
+        border: none;
+        border-radius: 0;
+        font-size: 10px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        z-index: 10;
+        position: relative;
+      }
+
+      .action-button-small:hover {
+        background: var(--light-orange);
+        transform: scale(1.05);
+      }
+
+      /* Modal Styles */
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(4px);
+      }
+
+      .modal-overlay.active {
+        display: flex;
+      }
+
+      .modal-content {
+        background: var(--card-bg);
+        border: 2px solid var(--primary-orange);
+        width: 90%;
+        max-width: 1000px;
+        max-height: 85vh;
+        overflow-y: auto;
+        border-radius: 0;
+        box-shadow: 0 20px 60px rgba(255, 107, 53, 0.3);
+      }
+
+      .modal-header {
+        padding: 24px 32px;
+        border-bottom: 2px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: rgba(255, 107, 53, 0.05);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+
+      .modal-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--text-primary);
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .modal-close {
+        width: 36px;
+        height: 36px;
+        background: transparent;
+        border: 2px solid var(--border-color);
+        color: var(--text-primary);
+        font-size: 24px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0;
+      }
+
+      .modal-close:hover {
+        background: var(--danger);
+        border-color: var(--danger);
+        transform: rotate(90deg);
+      }
+
+      .modal-body {
+        padding: 32px;
+      }
+
+      /* Role-Based Allocation in Modal */
+      .role-section-title {
+        font-size: 14px;
+        font-weight: 700;
+        margin-bottom: 12px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: var(--text-primary);
+      }
+
+      .role-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--border-color);
+        font-size: 12px;
+        margin-bottom: 18px;
+      }
+
+      .role-table thead {
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .role-table th {
+        padding: 10px;
+        border-bottom: 1px solid var(--border-color);
+        text-align: left;
+        color: var(--text-secondary);
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+      }
+
+      .role-table td {
+        padding: 10px;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-primary);
+      }
+
+      .role-table tr:hover {
+        background: rgba(255, 107, 53, 0.08);
+        transition: 0.15s ease;
+      }
+
+      .rebalance-box {
+        background: rgba(255, 107, 53, 0.05);
+        border: 1px solid rgba(255, 107, 53, 0.25);
+        padding: 16px;
+        margin-top: 16px;
+        margin-bottom: 16px;
+      }
+
+      .rebalance-item {
+        padding: 12px;
+        margin-bottom: 10px;
+        border: 1px solid rgba(255, 107, 53, 0.25);
+        background: rgba(255, 107, 53, 0.08);
+        font-size: 12px;
+      }
+
+      .rebalance-item strong {
+        color: var(--primary-orange);
+        font-weight: 700;
+      }
+
+      #rolePieContainer {
+        width: 100%;
+        margin-top: 20px;
+        margin-bottom: 20px;
+        text-align: center;
+      }
+
+      #rolePieChart {
+        max-width: 400px;
+        margin: 0 auto;
+      }
+
+      /* Proof Pack Modal Styles */
+      .proof-pack-list {
+        list-style: none;
+      }
+
+      .proof-pack-item {
+        padding: 20px;
+        margin-bottom: 16px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border-color);
+        border-radius: 0;
+        transition: all 0.2s ease;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .proof-pack-item:hover {
+        background: rgba(255, 107, 53, 0.08);
+        border-color: var(--primary-orange);
+        transform: translateX(4px);
+      }
+
+      .proof-pack-info {
+        flex: 1;
+      }
+
+      .proof-pack-name {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 6px;
+        font-family: "Inter", monospace;
+      }
+
+      .proof-pack-meta {
+        font-size: 11px;
+        color: var(--text-secondary);
+      }
+
+      .proof-pack-download {
+        padding: 10px 20px;
+        background: var(--primary-orange);
+        color: white;
+        border: none;
+        border-radius: 0;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        text-decoration: none;
+        display: inline-block;
+      }
+
+      .proof-pack-download:hover {
+        background: var(--light-orange);
+        transform: scale(1.05);
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 60px 40px;
+        color: var(--text-secondary);
+      }
+
+      .empty-state-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+        opacity: 0.5;
+      }
+
+      .empty-state-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 12px;
+      }
+
+      .empty-state-description {
+        font-size: 13px;
+        line-height: 1.6;
+        max-width: 400px;
+        margin: 0 auto;
+      }
+
+      /* Chat Panel Styles - 클로드 스타일 */
+      .chat-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--chat-border);
+        background: var(--chat-header-bg);
+        flex-shrink: 0;
+      }
+
+      .chat-header h2 {
+        font-size: 15px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--chat-text);
+        text-transform: none;
+        letter-spacing: 0;
+      }
+
+      .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        background: var(--chat-bg);
+      }
+
+      .message {
+        max-width: 90%;
+        padding: 14px 18px;
+        border-radius: 18px;
+        font-size: 14px;
+        line-height: 1.65;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+      }
+
+      .message.user {
+        align-self: flex-end;
+        background: var(--chat-user-bg);
+        color: #ffffff;
+        border-radius: 18px 18px 4px 18px;
+        font-weight: 400;
+      }
+
+      .message.assistant {
+        align-self: flex-start;
+        background: var(--chat-assistant-bg);
+        border: 1px solid var(--chat-border);
+        color: #2c2c2c;
+        border-radius: 18px 18px 18px 4px;
+        font-weight: 400;
+      }
+
+      /* Markdown Styling for Assistant Messages */
+      .message.assistant h1,
+      .message.assistant h2,
+      .message.assistant h3 {
+        color: #1a1a1a;
+        font-weight: 600;
+        margin: 18px 0 10px 0;
+        line-height: 1.4;
+      }
+
+      .message.assistant h1 {
+        font-size: 20px;
+      }
+      .message.assistant h2 {
+        font-size: 17px;
+        color: #ff7f50;
+      }
+      .message.assistant h3 {
+        font-size: 15px;
+      }
+
+      .message.assistant strong {
+        color: #ff7f50;
+        font-weight: 600;
+      }
+
+      .message.assistant code {
+        background: #f7f7f7;
+        padding: 3px 8px;
+        border-radius: 5px;
+        font-family: "Menlo", "Monaco", "Courier New", monospace;
+        font-size: 13px;
+        color: #b35926;
+        border: 1px solid #e9e9e9;
+      }
+
+      .message.assistant pre {
+        background: #f9f9f9;
+        padding: 14px 16px;
+        border-radius: 8px;
+        overflow-x: auto;
+        margin: 12px 0;
+        border: 1px solid #e5e5e5;
+      }
+
+      .message.assistant pre code {
+        background: none;
+        padding: 0;
+        color: #2c2c2c;
+        border: none;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .message.assistant ul,
+      .message.assistant ol {
+        margin: 12px 0;
+        padding-left: 28px;
+        color: #2c2c2c;
+      }
+
+      .message.assistant li {
+        margin: 8px 0;
+        line-height: 1.65;
+        color: #2c2c2c;
+      }
+
+      .message.assistant li::marker {
+        color: #ff7f50;
+      }
+
+      .message.assistant p {
+        margin: 10px 0;
+        line-height: 1.65;
+        color: #2c2c2c;
+      }
+
+      .message.assistant table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 12px 0;
+        font-size: 13px;
+        color: #2c2c2c;
+      }
+
+      .message.assistant table th {
+        background: #f7f7f7;
+        font-weight: 600;
+        color: #1a1a1a;
+        border: 1px solid #e0e0dc;
+        padding: 10px 12px;
+        text-align: left;
+      }
+
+      .message.assistant table td {
+        border: 1px solid #e0e0dc;
+        padding: 10px 12px;
+        text-align: left;
+        color: #2c2c2c;
+      }
+
+      .chat-input-area {
+        padding: 16px 24px 24px 24px;
+        border-top: 1px solid var(--chat-border);
+        background: var(--chat-header-bg);
+        flex-shrink: 0;
+      }
+
+      .quick-actions {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+      }
+
+      .quick-action-btn {
+        padding: 8px 14px;
+        background: var(--chat-assistant-bg);
+        border: 1px solid var(--chat-border);
+        border-radius: 20px;
+        color: var(--chat-text);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .quick-action-btn:hover {
+        border-color: var(--primary-orange);
+        color: var(--primary-orange);
+        background: #fff8f5;
+      }
+
+      .chat-input-container {
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+      }
+
+      .chat-input {
+        flex: 1;
+        padding: 12px 16px;
+        background: var(--chat-input-bg);
+        border: 1.5px solid var(--chat-border);
+        border-radius: 24px;
+        color: var(--chat-text);
+        font-size: 14px;
+        font-family: "Inter", sans-serif;
+        resize: none;
+        min-height: 48px;
+        max-height: 120px;
+        transition: all 0.2s ease;
+        line-height: 1.5;
+      }
+
+      .chat-input:focus {
+        outline: none;
+        border-color: var(--primary-orange);
+        box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
+      }
+
+      .chat-input::placeholder {
+        color: #999999;
+      }
+
+      .chat-send-btn {
+        padding: 12px 24px;
+        background: var(--primary-orange);
+        border: none;
+        border-radius: 24px;
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        flex-shrink: 0;
+        height: 48px;
+      }
+
+      .chat-send-btn:hover {
+        background: var(--light-orange);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(255, 107, 53, 0.25);
+      }
+
+      .chat-send-btn:disabled {
+        background: #d0d0d0;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+
+      /* Loading Animation */
+      .loading-dots {
+        display: inline-flex;
+        align-items: center;
+        margin-left: 4px;
+      }
+
+      .loading-dots span {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: #ff6b35;
+        margin: 0 2px;
+        opacity: 0.2;
+        animation: dotBlink 1s infinite;
+      }
+
+      .loading-dots span:nth-child(1) {
+        animation-delay: 0s;
+      }
+      .loading-dots span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .loading-dots span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      @keyframes dotBlink {
+        0%,
+        20% {
+          opacity: 0.2;
+          transform: translateY(0);
+        }
+        50% {
+          opacity: 1;
+          transform: translateY(-2px);
+        }
+        100% {
+          opacity: 0.2;
+          transform: translateY(0);
+        }
+      }
+
+      /* Timestamp */
+      .timestamp {
+        font-size: 8px;
+        color: var(--text-muted);
+        margin-top: auto;
+        padding-top: 12px;
+        text-align: right;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        flex-shrink: 0;
+      }
+
+      /* Loading Indicator */
+      .loading-indicator {
+        display: none;
+        padding: 12px;
+        background: rgba(255, 107, 53, 0.05);
+        border: 1px solid var(--primary-orange);
+        border-radius: 0;
+        margin-bottom: 12px;
+        text-align: center;
+        flex-shrink: 0;
+      }
+
+      .loading-indicator.active {
+        display: block;
+      }
+
+      .loading-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid var(--border-color);
+        border-top-color: var(--primary-orange);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        display: inline-block;
+        margin-right: 8px;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Scrollbar */
+      .dashboard-panel::-webkit-scrollbar,
+      .chat-messages::-webkit-scrollbar,
+      .custodian-list::-webkit-scrollbar,
+      .modal-content::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .dashboard-panel::-webkit-scrollbar-track,
+      .chat-messages::-webkit-scrollbar-track,
+      .custodian-list::-webkit-scrollbar-track,
+      .modal-content::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .dashboard-panel::-webkit-scrollbar-thumb,
+      .custodian-list::-webkit-scrollbar-thumb,
+      .modal-content::-webkit-scrollbar-thumb {
+        background: var(--border-color);
+        border-radius: 0;
+      }
+
+      .dashboard-panel::-webkit-scrollbar-thumb:hover,
+      .custodian-list::-webkit-scrollbar-thumb:hover,
+      .modal-content::-webkit-scrollbar-thumb:hover {
+        background: var(--primary-orange);
+      }
+
+      .chat-messages::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .chat-messages::-webkit-scrollbar-thumb {
+        background: #d5d5d5;
+        border-radius: 10px;
+      }
+
+      .chat-messages::-webkit-scrollbar-thumb:hover {
+        background: #b8b8b8;
+      }
+
+      /* Collateral Ratio Card */
+      .collateral-ratio-content {
+        padding: 16px 18px;
+        background: rgba(255, 107, 53, 0.08);
+        border: 1px solid rgba(255, 107, 53, 0.3);
+        margin-bottom: 10px;
+        flex-shrink: 0;
+      }
+
+      .offchain-reserves-header {
+        padding: 18px 16px;
+        background: rgba(255, 107, 53, 0.08);
+        border: 1px solid rgba(255, 107, 53, 0.3);
+        margin-bottom: 12px;
+        flex-shrink: 0;
+      }
+
+      /* Responsive */
+      @media (max-width: 1024px) {
+        .chat-panel {
+          width: 360px;
+        }
+
+        .content-grid {
+          grid-template-columns: 1fr;
+          grid-template-rows: auto;
+        }
+
+        .content-card.offchain-card {
+          grid-row: auto;
+          grid-column: auto;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .main-container {
+          flex-direction: column;
+        }
+
+        .chat-panel {
+          width: 100%;
+          height: 50vh;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="main-container">
+      <!-- Dashboard Panel -->
+      <div class="dashboard-panel" id="dashboardPanel">
+        <div class="dashboard-content">
+          <!-- Header -->
+          <div class="dashboard-header">
+            <div class="logo-section">
+              <div class="logo-icon">₩</div>
+              <div class="logo-text">
+                <h1>K-WON STABLECOIN DASHBOARD</h1>
+              </div>
+            </div>
+            <div class="status-indicator">
+              <div class="status-dot" id="statusDot"></div>
+              <span class="status-text" id="statusText">Online</span>
+            </div>
+          </div>
+
+          <!-- Loading -->
+          <div class="loading-indicator" id="loading">
+            <span class="loading-spinner"></span>
+            <span
+              style="
+                font-size: 10px;
+                color: var(--text-secondary);
+                text-transform: uppercase;
+              "
+              >Loading Data...</span
+            >
+          </div>
+
+          <!-- Main Content Grid - 2x2 Layout -->
+          <div class="content-grid">
+            <!-- Top Left: OnChain Supply -->
+            <div class="content-card">
+              <div class="card-header">
+                <div class="card-title-section">
+                  <span class="card-icon">🔗</span>
+                  <span class="card-title">On-Chain Supply</span>
+                </div>
+              </div>
+
+              <div class="data-row">
+                <div class="data-label">Total Supply</div>
+                <div class="data-value" id="totalSupplyMain">-</div>
+                <div class="data-subtitle">Blockchain Tokens</div>
+              </div>
+
+              <div class="data-row">
+                <div class="data-label">Net Circulation</div>
+                <div class="data-value" id="netCirculationMain">-</div>
+                <div class="data-subtitle">Active Tokens</div>
+              </div>
+
+              <div class="data-row">
+                <div class="data-label">Burned</div>
+                <div class="data-value" id="burnedMain">-</div>
+                <div class="data-subtitle">Destroyed Tokens</div>
+              </div>
+
+              <div class="timestamp" id="onchainTimestamp">-</div>
+            </div>
+
+            <!-- Right: OffChain Reserves (Spans 2 rows, 빈 공간 없이 확장) -->
+            <div class="content-card offchain-card">
+              <div class="card-header">
+                <div class="card-title-section">
+                  <span class="card-icon">🏦</span>
+                  <span class="card-title">Off-Chain Reserves</span>
+                </div>
+              </div>
+
+              <div class="offchain-reserves-header">
+                <div class="data-label" style="font-size: 10px">
+                  Total Reserves
+                </div>
+                <div
+                  class="card-value"
+                  id="totalReservesMain"
+                  style="font-size: 32px; margin: 6px 0"
+                >
+                  -
+                </div>
+                <div class="data-subtitle" style="font-size: 10px">
+                  5 Financial Institutions
+                </div>
+              </div>
+
+              <!-- Custodian List -->
+              <ul class="custodian-list" id="custodianList">
+                <!-- Populated dynamically -->
+              </ul>
+
+              <!-- 🔥 역할 기반 분석 버튼 (Off-Chain Reserves 박스 안) -->
+              <button
+                class="role-analysis-button"
+                onclick="openRoleAllocationModal()"
+              >
+                <span>🧮</span>
+                <span>역할 기반 비중 분석 실행</span>
+              </button>
+
+              <div class="timestamp" id="offchainTimestamp">-</div>
+            </div>
+
+            <!-- Bottom Left: Collateral Ratio -->
+            <div class="content-card">
+              <div class="card-header">
+                <div class="card-title-section">
+                  <span class="card-icon">📊</span>
+                  <span class="card-title">Collateral Ratio</span>
+                </div>
+              </div>
+
+              <div class="collateral-ratio-content">
+                <div
+                  class="data-label"
+                  style="margin-bottom: 8px; font-size: 10px"
+                >
+                  Coverage Ratio
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    align-items: baseline;
+                    gap: 6px;
+                    margin-bottom: 12px;
+                  "
+                >
+                  <span
+                    class="card-value"
+                    id="coverageRatioMain"
+                    style="font-size: 38px"
+                    >-</span
+                  >
+                  <span
+                    style="
+                      font-size: 24px;
+                      color: var(--text-secondary);
+                      font-weight: 700;
+                    "
+                    >%</span
+                  >
+                </div>
+                <div class="coverage-bar" style="margin-bottom: 8px">
+                  <div
+                    class="coverage-fill"
+                    id="coverageFillMain"
+                    style="width: 0%"
+                  ></div>
+                </div>
+                <div
+                  style="
+                    font-size: 9px;
+                    color: var(--text-secondary);
+                    text-transform: uppercase;
+                    letter-spacing: 0.6px;
+                    line-height: 1.5;
+                  "
+                >
+                  Target: 105% Min • Status:
+                  <span
+                    id="coverageStatus"
+                    style="font-weight: 700; color: var(--text-primary)"
+                    >-</span
+                  >
+                </div>
+              </div>
+
+              <div class="data-row" style="flex-shrink: 0">
+                <div class="data-label">Excess Collateral</div>
+                <div
+                  class="data-value"
+                  id="excessCollateral"
+                  style="font-size: 18px"
+                >
+                  -
+                </div>
+                <div class="data-subtitle">Safety Buffer</div>
+              </div>
+
+              <div class="timestamp" id="collateralTimestamp">-</div>
+            </div>
+          </div>
+
+          <!-- Action Buttons - Bottom Row (2 Buttons) -->
+          <div class="action-buttons">
+            <!-- Report Card -->
+            <div class="action-card-compact">
+              <div class="action-icon-compact">📊</div>
+              <div class="action-content">
+                <div class="action-title-compact">Report</div>
+                <div class="action-description-compact">
+                  Full verification report with analysis
+                </div>
+              </div>
+              <button
+                class="action-button-small"
+                onclick="generateReport(event)"
+              >
+                Generate
+              </button>
+            </div>
+
+            <!-- Evidence Card: 카드 클릭 = 증빙팩 모달, 버튼 클릭 = 증빙 감사 프롬프트 -->
+            <div
+              class="action-card-compact"
+              onclick="openProofPackModal(event)"
+            >
+              <div class="action-icon-compact">📦</div>
+              <div class="action-content">
+                <div class="action-title-compact">Evidence</div>
+                <div class="action-description-compact">
+                  Audit package with transaction logs
+                </div>
+              </div>
+              <button
+                class="action-button-small"
+                onclick="generateEvidencePack(event)"
+              >
+                Generate
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resizer -->
+      <div class="resizer" id="resizer"></div>
+
+      <!-- Chat Panel -->
+      <div class="chat-panel" id="chatPanel">
+        <div class="chat-header">
+          <h2>💬 Claude AI</h2>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+          <div class="message assistant">
+            <p style="margin-bottom: 16px">
+              <strong>K-WON 스테이블코인 모니터링 시스템입니다.</strong>
+            </p>
+            <p style="margin-bottom: 8px">
+              <strong>자동 업데이트:</strong> 5초마다 실시간 갱신
+            </p>
+            <p style="margin-bottom: 8px"><strong>주요 기능:</strong></p>
+            <ul style="margin-top: 8px; margin-bottom: 0">
+              <li>담보 비율 실시간 검증</li>
+              <li>온/오프체인 데이터 분석</li>
+              <li>종합 보고서 생성</li>
+              <li>증빙 자료 패키지</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="chat-input-area">
+          <div class="quick-actions">
+            <button class="quick-action-btn" onclick="quickAsk('담보 분석')">
+              담보 분석
+            </button>
+            <button class="quick-action-btn" onclick="quickAsk('보고서')">
+              보고서
+            </button>
+            <button class="quick-action-btn" onclick="quickAsk('증빙팩')">
+              증빙팩
+            </button>
+            <button class="quick-action-btn" onclick="quickAsk('은행 리스크')">
+              은행 리스크
+            </button>
+          </div>
+          <div class="chat-input-container">
+            <textarea
+              class="chat-input"
+              id="chatInput"
+              placeholder="Enter your question..."
+              rows="1"
+            ></textarea>
+            <button class="chat-send-btn" id="sendBtn" onclick="sendMessage()">
+              Send
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🔥 Role-Based Allocation Modal -->
+    <div class="modal-overlay" id="roleAllocationModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div class="modal-title">
+            <span>🧮</span>
+            <span>역할 기반 예치 비중 분석</span>
+          </div>
+          <button class="modal-close" onclick="closeRoleAllocationModal()">
+            ×
+          </button>
+        </div>
+        <div class="modal-body">
+          <!-- 실행 버튼 -->
+          <button
+            id="runRoleAllocation"
+            class="action-button-small"
+            style="margin-bottom: 20px; font-size: 12px; padding: 10px 20px"
+          >
+            역할 기반 비중 분석 실행
+          </button>
+
+          <!-- 현재 예치 현황 -->
+          <div id="roleCurrentContainer">
+            <div class="role-section-title">Current Allocation</div>
+            <table class="role-table" id="roleCurrentTable">
+              <!-- Filled by JS -->
+            </table>
+          </div>
+
+          <!-- 목표 비중 -->
+          <div id="roleTargetContainer" style="margin-top: 20px">
+            <div class="role-section-title">Target Allocation (Role-Based)</div>
+            <table class="role-table" id="roleTargetTable">
+              <!-- Filled by JS -->
+            </table>
+          </div>
+
+          <!-- Pie Chart -->
+          <div id="rolePieContainer">
+            <canvas id="rolePieChart"></canvas>
+          </div>
+
+          <!-- 재예치 제안 -->
+          <div id="roleRebalanceContainer" class="rebalance-box">
+            <div class="role-section-title">Rebalancing Suggestions</div>
+            <div id="roleRebalanceList">
+              <!-- Filled by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🔥 Proof Pack Modal -->
+    <div class="modal-overlay" id="proofPackModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div class="modal-title">
+            <span>📦</span>
+            <span>증빙팩 목록</span>
+          </div>
+          <button class="modal-close" onclick="closeProofPackModal()">×</button>
+        </div>
+        <div class="modal-body">
+          <ul class="proof-pack-list" id="proofPackList">
+            <!-- Populated dynamically -->
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE = "http://localhost:5100/api";
+      let autoRefreshInterval;
+      let rolePieChart = null;
+
+      // Resizer 기능
+      (function () {
+        const resizer = document.getElementById("resizer");
+        const chatPanel = document.getElementById("chatPanel");
+        let isResizing = false;
+        let startX = 0;
+        let startWidth = 0;
+
+        resizer.addEventListener("mousedown", (e) => {
+          isResizing = true;
+          startX = e.clientX;
+          startWidth = chatPanel.offsetWidth;
+          resizer.classList.add("dragging");
+          document.body.style.cursor = "col-resize";
+          document.body.style.userSelect = "none";
+        });
+
+        document.addEventListener("mousemove", (e) => {
+          if (!isResizing) return;
+          const deltaX = startX - e.clientX;
+          const newWidth = startWidth + deltaX;
+          if (newWidth >= 300 && newWidth <= 800) {
+            chatPanel.style.width = newWidth + "px";
+          }
+        });
+
+        document.addEventListener("mouseup", () => {
+          if (isResizing) {
+            isResizing = false;
+            resizer.classList.remove("dragging");
+            document.body.style.cursor = "";
+            document.body.style.userSelect = "";
+          }
+        });
+      })();
+
+      // Initialize
+      window.addEventListener("load", () => {
+        checkBackendHealth();
+        startAutoRefresh();
+      });
+
+      function startAutoRefresh() {
+        fullVerification();
+        autoRefreshInterval = setInterval(() => {
+          fullVerification();
+        }, 5000);
+      }
+
+      async function checkBackendHealth() {
+        try {
+          const response = await fetch(`${API_BASE}/health`);
+          updateConnectionStatus(true);
+        } catch (error) {
+          updateConnectionStatus(false);
+        }
+      }
+
+      function updateConnectionStatus(isOnline) {
+        const statusDot = document.getElementById("statusDot");
+        const statusText = document.getElementById("statusText");
+        if (isOnline) {
+          statusDot.style.background = "var(--success)";
+          statusText.textContent = "Online";
+        } else {
+          statusDot.style.background = "var(--danger)";
+          statusText.textContent = "Offline";
+        }
+      }
+
+      function formatNumber(num) {
+        return new Intl.NumberFormat("ko-KR").format(num);
+      }
+
+      function formatKRW(num) {
+        return "₩" + formatNumber(num);
+      }
+
+      async function fullVerification() {
+        try {
+          const response = await fetch(`${API_BASE}/full-verification`);
+          const result = await response.json();
+          if (result.success) {
+            updateMetrics(result.data);
+          }
+        } catch (error) {
+          console.error("API Error:", error);
+        }
+      }
+
+      function updateMetrics(data) {
+        const ratio = data.coverage.coverage_ratio;
+
+        // OnChain
+        document.getElementById("totalSupplyMain").textContent = formatKRW(
+          data.onchain.total_supply
+        );
+        document.getElementById("netCirculationMain").textContent = formatKRW(
+          data.onchain.net_circulation
+        );
+        document.getElementById("burnedMain").textContent = formatKRW(
+          data.onchain.burned
+        );
+        document.getElementById("onchainTimestamp").textContent = new Date(
+          data.onchain.timestamp
+        ).toLocaleString("ko-KR");
+
+        // Coverage Ratio
+        document.getElementById("coverageRatioMain").textContent = ratio;
+        const ratioElement = document.getElementById("coverageRatioMain");
+        ratioElement.className =
+          "card-value " +
+          (ratio >= 105
+            ? "value-ok"
+            : ratio >= 100
+            ? "value-warning"
+            : "value-danger");
+        document.getElementById("coverageFillMain").style.width =
+          Math.min(ratio, 150) + "%";
+        const status =
+          ratio >= 105 ? "Healthy" : ratio >= 100 ? "Warning" : "Deficit";
+        document.getElementById("coverageStatus").textContent = status;
+        const excess =
+          data.offchain.total_reserves - data.onchain.net_circulation;
+        document.getElementById("excessCollateral").textContent =
+          formatKRW(excess);
+        document.getElementById("collateralTimestamp").textContent = new Date(
+          data.coverage.timestamp
+        ).toLocaleString("ko-KR");
+
+        // OffChain
+        document.getElementById("totalReservesMain").textContent = formatKRW(
+          data.offchain.total_reserves
+        );
+        const list = document.getElementById("custodianList");
+        list.innerHTML = data.offchain.custodians
+          .map(
+            (c) => `
+          <li class="custodian-item">
+            <span class="custodian-name">${c.name}</span>
+            <span class="custodian-amount">${formatKRW(c.amount)}</span>
+          </li>
+        `
+          )
+          .join("");
+        document.getElementById("offchainTimestamp").textContent = new Date(
+          data.offchain.timestamp
+        ).toLocaleString("ko-KR");
+      }
+
+      // ========================================
+      // PROOF PACK MODAL FUNCTIONS
+      // ========================================
+
+      async function openProofPackModal(event) {
+        // 🔥 Generate 버튼 클릭인 경우 → 증빙 감사 프롬프트 전송
+        if (event && event.target.closest(".action-button-small")) {
+          event.stopPropagation();
+          generateEvidencePack(event);
+          return;
+        }
+
+        // 🔥 카드 클릭 → 증빙팩 모달 열기
+        const modal = document.getElementById("proofPackModal");
+        const list = document.getElementById("proofPackList");
+
+        list.innerHTML =
+          '<li class="empty-state"><div class="loading-spinner"></div><p>로딩 중...</p></li>';
+        modal.classList.add("active");
+
+        try {
+          const response = await fetch(`http://localhost:5100/proof_packs`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+          });
+
+          if (!response.ok) {
+            throw new Error(`서버 응답 오류: ${response.status}`);
+          }
+
+          const data = await response.json();
+          const files = data.files || [];
+
+          if (files.length === 0) {
+            list.innerHTML = `
+              <li class="empty-state">
+                <div class="empty-state-icon">📦</div>
+                <div class="empty-state-title">생성된 증빙팩이 없습니다</div>
+                <div class="empty-state-description">
+                  증빙팩을 생성하려면 채팅창에서 '증빙팩 만들어줘' 라고 요청하세요.
+                </div>
+              </li>
+            `;
+            return;
+          }
+
+          list.innerHTML = files
+            .map((file) => {
+              const downloadUrl = `http://localhost:5100/proof_packs/${encodeURIComponent(
+                file
+              )}`;
+              const fileSize = "~2.5 KB";
+              return `
+              <li class="proof-pack-item">
+                <div class="proof-pack-info">
+                  <div class="proof-pack-name">${file}</div>
+                  <div class="proof-pack-meta">ZIP 파일 • ${fileSize}</div>
+                </div>
+                <a href="${downloadUrl}" class="proof-pack-download" download>다운로드</a>
+              </li>
+            `;
+            })
+            .join("");
+        } catch (error) {
+          console.error("Proof pack 목록 조회 실패:", error);
+          list.innerHTML = `
+            <li class="empty-state">
+              <div class="empty-state-icon">⚠️</div>
+              <div class="empty-state-title">목록을 가져올 수 없습니다</div>
+              <div class="empty-state-description">서버 연결을 확인하세요.<br>${error.message}</div>
+            </li>
+          `;
+        }
+      }
+
+      function closeProofPackModal() {
+        document.getElementById("proofPackModal").classList.remove("active");
+      }
+
+      // ========================================
+      // ROLE ALLOCATION MODAL FUNCTIONS
+      // ========================================
+
+      function openRoleAllocationModal() {
+        document.getElementById("roleAllocationModal").classList.add("active");
+      }
+
+      function closeRoleAllocationModal() {
+        document
+          .getElementById("roleAllocationModal")
+          .classList.remove("active");
+      }
+
+      // Modal 외부 클릭 시 닫기
+      document
+        .getElementById("proofPackModal")
+        .addEventListener("click", function (e) {
+          if (e.target === this) closeProofPackModal();
+        });
+
+      document
+        .getElementById("roleAllocationModal")
+        .addEventListener("click", function (e) {
+          if (e.target === this) closeRoleAllocationModal();
+        });
+
+      // ESC 키로 모달 닫기
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+          closeProofPackModal();
+          closeRoleAllocationModal();
+        }
+      });
+
+      // Action handlers
+      function generateReport(event) {
+        if (event) event.stopPropagation();
+        addMessage(
+          "📊 Generating comprehensive verification report...",
+          "assistant"
+        );
+        setTimeout(() => {
+          addMessage(
+            "✅ Report Generated!\n\n" +
+              "Contents:\n" +
+              "• Collateral ratio analysis\n" +
+              "• On-chain supply verification\n" +
+              "• Off-chain reserve status\n" +
+              "• Risk assessment\n" +
+              "• Time-series data",
+            "assistant"
+          );
+        }, 1500);
+      }
+
+      // 🔥 Generate 버튼 클릭 시 증빙 감사 프롬프트 전송
+      function generateEvidencePack(event) {
+        if (event) {
+          event.stopPropagation(); // 카드 클릭 이벤트 차단
+        }
+
+        const evidencePrompt = `
+지금부터 너는 "증빙 모드"로 도와주는 온체인 감사 어시스턴트야.
+
+[거래 선택 규칙]
+
+- 사용자가 거래 해시(tx_hash)를 주면:
+  → events_search(tx_hash=..., tx_prefix_ok=true, limit=1) 툴로 해당 거래 1건을 찾고,
+     그 이벤트의 tx_hash를 증빙 대상 거래로 사용해.
+
+- From / To 주소로 요청하면:
+  → 문맥을 보고 role을 정해:
+     • "보낸/출금" 느낌 → role="from"
+     • "받은/입금" 느낌 → role="to"
+     • 그냥 "관련 거래" → role="any"
+  → events_search(address=..., role=..., limit=20)을 호출하고,
+     "가장 최근", "n번째" 같은 사용자의 요청에 맞는 거래 1건을 선택해서
+     그 tx_hash를 증빙 대상으로 사용해.
+
+- 시간 조건(예: "어제 이후", "최근 1시간")으로 요청하면:
+  → 자연어를 start_iso / end_iso로 적당히 해석해서
+     events_search(start_iso=..., end_iso=..., limit=20)으로 거래를 찾고,
+     그 중에서 요청에 맞는 거래 1건의 tx_hash를 증빙 대상으로 사용해.
+
+- 위 세 가지 조건이 전혀 없고, 그냥 "증빙팩 만들어줘" 정도만 있으면:
+  → events_recent(limit=1, tz="UTC", include_raw=true)으로
+     가장 최근 거래 1건을 선택해서 그 tx_hash를 사용해.
+
+[머클 배치 / 앵커링 확인]
+
+선택된 tx_hash로 먼저 event_proof(tx_hash=..., tz="UTC")를 호출해서 상태를 확인해 줘.
+
+- 이벤트를 찾지 못한 경우(null 이거나 "event not found" 느낌):
+  → "아직 DB에 이 거래가 수집되지 않은 것 같습니다. 필요하다면 온체인 데이터를 수집(collect_once)해서 다시 시도할 수 있습니다." 라고 설명해.
+  → collect_once는 사용자가 원한다고 했을 때만 호출해.
+
+- batch_id가 없는 경우(어떤 배치에도 안 들어간 거래):
+  → 먼저 사용자에게 물어봐:
+    "이 거래는 아직 머클 배치에 포함되지 않았습니다.
+     지금 이 거래를 포함한 머클 배치를 만들고, 이어서 앵커링과 증빙팩 생성까지 진행할까요?"
+  → 사용자가 동의하면:
+    1) make_batch(limit=1000, mode="oldest") 등을 호출해서 배치를 만들고
+    2) 같은 tx_hash로 다시 event_proof를 호출해서 batch_id와 proof가 생겼는지 확인한 뒤
+    3) 아래 증빙팩 생성 단계로 진행해.
+  → 동의하지 않으면:
+    - 배치/앵커링은 실행하지 말고,
+    - "현재 이 거래는 아직 머클 배치에 포함되지 않은 상태"라고만 설명해 줘.
+
+- batch_id는 있는데 아직 앵커링이 안 된 경우:
+  → anchor_status(batch_id=..., chain="mock")로 상태를 확인해.
+  → status가 "anchored"가 아니라면, 사용자에게 물어봐:
+    "이 거래가 포함된 배치 {batch_id} 는 아직 앵커링되지 않았습니다.
+     mock 체인에 앵커링을 수행한 뒤, 증빙팩까지 생성해 드릴까요?"
+  → 사용자가 동의하면:
+    1) anchor_batch(batch_id=..., chain="mock")를 호출하고
+    2) 필요하면 anchor_status로 anchored 상태를 확인한 뒤
+    3) 증빙팩 생성 단계로 진행해.
+  → 사용자가 거절하면:
+    - "현재는 머클 배치까지만 되어 있고 온체인 앵커링은 되어 있지 않은 상태"라고 분명히 알려주고,
+    - 그 상태 그대로 증빙팩 생성을 원하면 진행해도 돼.
+
+- 이미 머클 배치 + 앵커링까지 끝난 상태면:
+  → 바로 증빙팩 생성 단계로 넘어가면 돼.
+
+[증빙팩 생성]
+
+준비가 끝난 tx_hash에 대해 proof_pack(
+  tx_hash=...,
+  include_raw=true,
+  tz="UTC",
+  as_zip=true
+)을 호출해서 증빙팩을 만든다.
+
+proof_pack 응답에서
+- path
+- sha256
+- bytes
+값을 반드시 실제 그대로 꺼내서 보여주고,
+"이 경로에 ZIP 증빙팩이 생성되었습니다." 라고 안내해 줘.
+
+또, 가능하면 이 거래에 대한 요약도 함께 보여줘:
+- 금액, From / To 주소
+- 블록 번호
+- 거래 시간(요청한 시간대에 맞춰 포맷)
+등을 정리해서 "어떤 거래에 대한 증빙팩인지" 한 눈에 알 수 있게 설명해.
+
+[다시 요청하는 경우]
+
+사용자가 "다른 거래로 증빙팩 만들어줘", "이번엔 저 거래로" 등으로 다시 요청하면,
+- 새 기준에 맞춰 events_search / events_recent로 거래를 다시 고르고
+- 위와 같은 순서(머클 배치/앵커링 확인 → 필요시 사용자에게 물어보기 → proof_pack 생성)로 다시 진행해.
+
+중요:
+- 툴을 실제로 호출하지 않고 결과를 상상해서 만들어내지 마.
+- 항상 events_search / events_recent / event_proof / make_batch /
+  anchor_status / anchor_batch / proof_pack 의 실제 응답을 기반으로 설명해.
+        `.trim();
+
+        sendMessageWith(evidencePrompt, "📦 증빙팩 생성 모드로 전환합니다...");
+      }
+
+      // Chat functions
+      const chatMessages = document.getElementById("chatMessages");
+      const chatInput = document.getElementById("chatInput");
+      const loadingDotsHTML =
+        '<span class="loading-dots"><span></span><span></span><span></span></span>';
+
+      chatInput.addEventListener("input", function () {
+        this.style.height = "auto";
+        this.style.height = this.scrollHeight + "px";
+      });
+
+      chatInput.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+
+      function quickAsk(question) {
+        chatInput.value = question;
+        sendMessage();
+      }
+
+      function addMessage(text, type) {
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${type}`;
+
+        if (type === "assistant") {
+          try {
+            const htmlContent = marked.parse(text);
+            messageDiv.innerHTML = htmlContent;
+          } catch (error) {
+            console.error("Markdown parsing error:", error);
+            messageDiv.innerHTML = text.replace(/\n/g, "<br>");
+          }
+        } else {
+          messageDiv.innerHTML = text.replace(/\n/g, "<br>");
+        }
+
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+
+      async function sendMessageWith(text, displayText = null) {
+        const message = text.trim();
+        if (!message) return;
+
+        addMessage(displayText || message, "user");
+        chatInput.value = "";
+        chatInput.style.height = "auto";
+
+        const sendBtn = document.getElementById("sendBtn");
+        sendBtn.disabled = true;
+
+        const assistantMessageDiv = document.createElement("div");
+        assistantMessageDiv.className = "message assistant typing";
+        assistantMessageDiv.innerHTML = loadingDotsHTML;
+        chatMessages.appendChild(assistantMessageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        try {
+          const response = await fetch(`${API_BASE}/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`서버 응답 오류: ${response.status}`);
+          }
+
+          const data = await response.json();
+          const fullText =
+            data.response ||
+            data.error ||
+            "⚠️ 서버에서 응답을 받았지만 내용을 해석하지 못했습니다.";
+
+          assistantMessageDiv.classList.remove("typing");
+          const htmlContent = marked.parse(fullText);
+          assistantMessageDiv.innerHTML = htmlContent;
+        } catch (error) {
+          console.error("Chat API Error:", error);
+          assistantMessageDiv.classList.remove("typing");
+          assistantMessageDiv.innerHTML =
+            "⚠️ 서버와 연결할 수 없습니다. Flask 서버 또는 MCP 서버 상태를 확인해주세요.";
+        }
+
+        sendBtn.disabled = false;
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+
+      async function sendMessage() {
+        const message = chatInput.value.trim();
+        if (!message) return;
+        await sendMessageWith(message);
+      }
+
+      // ========================================
+      // ROLE-BASED RESERVE ALLOCATION ENGINE
+      // ========================================
+
+      async function loadCurrentExposures() {
+        try {
+          const res = await fetch(`${API_BASE}/full-reserves`);
+          return await res.json();
+        } catch (e) {
+          console.error("Error loading reserves", e);
+          return [];
+        }
+      }
+
+      async function callMCP(functionName, args) {
+        try {
+          const res = await fetch(`${API_BASE}/mcp`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              function: functionName,
+              arguments: args,
+            }),
+          });
+          return await res.json();
+        } catch (e) {
+          console.error("MCP Error:", e);
+          return { error: "MCP call failed" };
+        }
+      }
+
+      function renderRoleTable(tableElem, rows, columns) {
+        let html = `<thead><tr>${columns
+          .map((c) => `<th>${c.header}</th>`)
+          .join("")}</tr></thead><tbody>`;
+        rows.forEach((row) => {
+          html += `<tr>`;
+          columns.forEach((col) => {
+            html += `<td>${row[col.key]}</td>`;
+          });
+          html += `</tr>`;
+        });
+        html += `</tbody>`;
+        tableElem.innerHTML = html;
+      }
+
+      function renderRolePieChart(targets) {
+        const ctx = document.getElementById("rolePieChart");
+        if (rolePieChart) {
+          rolePieChart.destroy();
+        }
+        rolePieChart = new Chart(ctx, {
+          type: "pie",
+          data: {
+            labels: targets.map(
+              (t) => `${t.name} (${(t.target_pct * 100).toFixed(1)}%)`
+            ),
+            datasets: [
+              {
+                data: targets.map((t) => t.target_pct * 100),
+                backgroundColor: [
+                  "#ff6b35",
+                  "#ff8c42",
+                  "#00e676",
+                  "#ffa502",
+                  "#1e90ff",
+                  "#2ed573",
+                  "#5352ed",
+                  "#ff4757",
+                ],
+              },
+            ],
+          },
+        });
+      }
+
+      function renderRebalancePlan(list) {
+        const container = document.getElementById("roleRebalanceList");
+        if (!list || list.length === 0) {
+          container.innerHTML = `<div style="color:var(--text-secondary); font-size:12px;">모든 비중이 역할 기준에 적합합니다. 재배분 필요 없음.</div>`;
+          return;
+        }
+        let html = "";
+        list.forEach((item) => {
+          html += `
+            <div class="rebalance-item">
+              <strong>${item.from_bank}</strong> → <strong>${
+            item.to_bank
+          }</strong><br>
+              이동 금액: <strong>${formatKRW(item.amount)}</strong><br>
+              <em>${item.reason}</em>
+            </div>
+          `;
+        });
+        container.innerHTML = html;
+      }
+
+      document
+        .getElementById("runRoleAllocation")
+        .addEventListener("click", async () => {
+          addMessage(
+            "🧮 역할 기반 예치 비중 분석을 시작합니다...",
+            "assistant"
+          );
+
+          const institutions = await loadCurrentExposures();
+
+          renderRoleTable(
+            document.getElementById("roleCurrentTable"),
+            institutions,
+            [
+              { key: "bank_id", header: "Bank ID" },
+              { key: "name", header: "Name" },
+              { key: "exposure", header: "Exposure" },
+              { key: "fss", header: "FSS Score" },
+              { key: "role", header: "Role" },
+            ]
+          );
+
+          const alloc = await callMCP("role_based_allocation", {
+            institutions: institutions,
+          });
+
+          if (alloc.error || !alloc.result || !alloc.result.banks) {
+            addMessage("⚠️ MCP 오류: 역할 기반 배분 계산 실패", "assistant");
+            return;
+          }
+
+          renderRoleTable(
+            document.getElementById("roleTargetTable"),
+            alloc.result.banks,
+            [
+              { key: "bank_id", header: "Bank ID" },
+              { key: "name", header: "Bank Name" },
+              { key: "role", header: "Role" },
+              { key: "target_pct", header: "Target %" },
+              { key: "target_amount", header: "Target Amount" },
+            ]
+          );
+
+          renderRolePieChart(alloc.result.banks);
+
+          const reb = await callMCP("role_based_rebalance", {
+            institutions: institutions,
+          });
+
+          if (reb.error) {
+            addMessage("⚠️ MCP 오류: 재예치 플랜 계산 실패", "assistant");
+          } else {
+            renderRebalancePlan(reb.result.rebalance_plan || []);
+            addMessage(
+              "📈 역할 기반 분석 및 재예치 제안이 생성되었습니다.",
+              "assistant"
+            );
+          }
+        });
+    </script>
+  </body>
+</html>

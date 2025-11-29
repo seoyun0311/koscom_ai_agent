@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  influxdb:
+    image: influxdb:latest
+    container_name: influxdb
+    expose:
+      - "8086"
+    volumes:
+      - influxdb2-data:/var/lib/influxdb2
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: StrongP@ssw0rd
+      DOCKER_INFLUXDB_INIT_ORG: dancom
+      DOCKER_INFLUXDB_INIT_BUCKET: my-bucket
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: SOME_LONG_RANDOM_TOKEN
+
+  nginx:
+    image: nginx:latest
+    container_name: influx-proxy
+    ports:
+      - "8086:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - influxdb
+
+volumes:
+  influxdb2-data:

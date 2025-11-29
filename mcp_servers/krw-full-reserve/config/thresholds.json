@@ -1,0 +1,49 @@
+{
+  "coverage": {
+    "critical": 98.0,
+    "warning": 100.0,
+    "optimal": 105.0,
+    "description": "담보율 기준 - critical: 98% 미만 위험, warning: 100% 미만 주의, optimal: 105% 이상 최적"
+  },
+  "concentration": {
+    "max_single_institution": 50.0,
+    "max_primary_custodians": 80.0,
+    "description": "집중도 리스크 - 단일 기관 최대 50%, 주수탁은행 합계 최대 80%"
+  },
+  "liquidity": {
+    "min_ratio": 50.0,
+    "description": "유동성 비율 - 즉시 현금화 가능 자산 최소 50%"
+  },
+  "risk_levels": {
+    "LOW": {
+      "threshold": 105.0,
+      "color": "green",
+      "action": "현재 운영 체제 유지"
+    },
+    "MEDIUM": {
+      "threshold": 100.0,
+      "color": "yellow",
+      "action": "모니터링 강화"
+    },
+    "HIGH": {
+      "threshold": 98.0,
+      "color": "orange",
+      "action": "담보 보충 검토"
+    },
+    "CRITICAL": {
+      "threshold": 0.0,
+      "color": "red",
+      "action": "긴급 조치 필요"
+    }
+  },
+  "monitoring": {
+    "check_interval_seconds": 60,
+    "alert_threshold": 98.0,
+    "notification_channels": ["email", "sms", "slack"]
+  },
+  "metadata": {
+    "last_updated": "2025-11-05",
+    "version": "1.0.0",
+    "regulatory_basis": "전자금융거래법, 자본시장법"
+  }
+}

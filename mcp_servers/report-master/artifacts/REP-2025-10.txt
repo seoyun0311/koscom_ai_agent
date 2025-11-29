@@ -1,0 +1,18 @@
+[MCP Monthly Report] Period: 2025-10
+
+- Final Grade: A
+
+[Sections]
+1) Collateral: grade=A
+2) Peg       : grade=A
+3) Disclosure: grade=A
+4) Liquidity : grade=A
+5) PoR       : grade=A
+
+[Key Points]
+- Collateral grade: A
+- Peg grade: A
+- Disclosure grade: A
+- Liquidity grade: A
+- PoR grade: A
+- Consistency status: ok

@@ -1,0 +1,71 @@
+{
+  "primary_custodians": [
+    {
+      "code": "SH",
+      "name": "신한은행",
+      "name_en": "Shinhan Bank",
+      "type": "주수탁은행",
+      "role": "메인 담보자산 보관",
+      "contact": {
+        "address": "서울특별시 중구 세종대로 9길 20",
+        "phone": "02-3151-0114",
+        "website": "https://www.shinhan.com"
+      }
+    },
+    {
+      "code": "KB",
+      "name": "KB국민은행",
+      "name_en": "KB Kookmin Bank",
+      "type": "주수탁은행",
+      "role": "서브 담보자산 보관",
+      "contact": {
+        "address": "서울특별시 중구 남대문로2가 9-1",
+        "phone": "1588-9999",
+        "website": "https://www.kbstar.com"
+      }
+    }
+  ],
+  "secondary_custodian": {
+    "code": "KDB",
+    "name": "KDB산업은행",
+    "name_en": "Korea Development Bank",
+    "type": "보조수탁은행",
+    "role": "리스크 분산 및 유동성 확보",
+    "contact": {
+      "address": "서울특별시 영등포구 은행로 14",
+      "phone": "02-787-4000",
+      "website": "https://www.kdb.co.kr"
+    }
+  },
+  "asset_manager": {
+    "code": "NH",
+    "name": "NH투자증권",
+    "name_en": "NH Investment & Securities",
+    "type": "운용기관",
+    "role": "자산 운용 및 수익 창출",
+    "portfolio_strategy": "단기 국채 60%, MMF 30%, 현금성 자산 10%",
+    "target_yield": "연 3-4%",
+    "contact": {
+      "address": "서울특별시 영등포구 여의대로 68",
+      "phone": "1544-0000",
+      "website": "https://www.nhqv.com"
+    }
+  },
+  "depository": {
+    "code": "KSD",
+    "name": "한국예탁결제원",
+    "name_en": "Korea Securities Depository",
+    "type": "보관기관",
+    "role": "증권 물리적 보관 및 결제",
+    "contact": {
+      "address": "부산광역시 남구 문현금융로 40",
+      "phone": "051-519-1000",
+      "website": "https://www.ksd.or.kr"
+    }
+  },
+  "metadata": {
+    "last_updated": "2025-11-05",
+    "version": "1.0.0",
+    "description": "KRWS 스테이블코인 담보 관리 금융기관 정보"
+  }
+}
