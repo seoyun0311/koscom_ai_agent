@@ -415,31 +415,45 @@ def notify_monthly_report(
     """
     Scheduler / LangGraph에서 사용하는 월간 보고서 알림 래퍼.
 
-    ❗이제는 Slack으로 요약 카드를 보내지 않고,
-    단순히 로그만 남기도록 변경했다.
-    (승인/반려 알림은 slack_interactions.py에서 처리)
+    - 알림 실패가 플로우 전체를 깨지 않도록,
+      여기서는 예외를 밖으로 던지지 않고 로그 + 결과만 반환한다.
+    - status 값은 APPROVED / generated / SUCCESS / FAILED 등 다양하게 올 수 있으므로,
+      "ERROR/FAILED" 계열만 명시적으로 에러로 본다.
     """
     summary = summary or {}
 
-    # 성공이 아닌 경우: 에러 요약 메시지 구성
-    if status not in ("SUCCESS", "COMPLETED"):
-        error_msg = error or "월간 보고서 생성 중 오류가 발생했습니다."
+    # status 문자열 정규화
+    normalized = (status or "").upper()
+
+    is_error = False
+    error_msg = error
+
+    # 1) 명시적으로 에러 상태인 경우
+    if normalized in ("ERROR", "FAILED"):
+        is_error = True
+        if not error_msg:
+            error_msg = "월간 보고서 생성 중 오류가 발생했습니다."
+
+    # 2) status 는 OK지만 error 문자열이 넘어온 경우도 에러로 취급
+    elif error_msg:
+        is_error = True
+
+    if is_error:
         logger.error(
-            "[notify_monthly_report] report failed: period=%s, status=%s, error=%s",
+            "[notify_monthly_report] report error: period=%s, status=%s, error=%s",
             period,
             status,
             error_msg,
         )
     else:
         logger.info(
-            "[notify_monthly_report] report succeeded: period=%s "
-            "(Slack summary disabled)",
+            "[notify_monthly_report] report finalized: period=%s, status=%s",
             period,
+            status,
         )
 
-    # 호출부가 결과를 기대할 수 있으니 형식만 맞춰서 반환
     return {
-        "success": True,
-        "error": None,
+        "success": (not is_error),
+        "error": error_msg,
         "status": status,
     }

@@ -1,0 +1,19 @@
+venv
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.sqlite3
+.DS_Store
+.git
+.gitignore
+__MACOSX
+
+# IDE
+.vscode
+.idea
+
+# 환경 파일은 빌드 컨텍스트에 안 넣고 host 에서만 사용
+.env
+*/.env

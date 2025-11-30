@@ -186,7 +186,8 @@ TOOL_MAP = {
     # "role_based_rebalance": lambda params: role_based_rebalance_http(params),
     "role_based_rebalance": lambda params: run_async(role_based_rebalance_http(params)),
     "compute_fss_for_bank": lambda params: run_async(compute_fss_for_bank(params)),
-    "get_latest_fss": lambda params: run_async(get_latest_fss(params)),
+    "get_latest_fss": lambda params: run_async(get_latest_fss({"bank_id": params.get("bank_id")})),
+
     # 🔥🔥🔥 FSS 계산 메인 함수
     # params 예:
     # {

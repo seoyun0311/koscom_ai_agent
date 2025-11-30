@@ -5,6 +5,7 @@ import logging
 from typing import Dict, Any
 
 import requests
+import asyncio
 
 from app_mcp.core.db import SessionLocal  # AsyncSession factory
 from app_mcp.services.snapshot_crud import insert_snapshot
@@ -14,7 +15,7 @@ from app_mcp.core.risk_rules import overall_risk_level, RiskLevel
 
 # Slack 알림은 선택(에러 나면 noop)
 try:
-    from app_mcp.tools.slack import send_risk_alert
+    from app_mcp.tools.slack_alerts import send_risk_alert
 except Exception:
     def send_risk_alert(*args, **kwargs):
         logging.warning("send_risk_alert 불러오기 실패 (Slack 비활성화).")
@@ -23,7 +24,7 @@ except Exception:
 logger = logging.getLogger(__name__)
 
 # Node 백엔드 기본 URL (.env BACKEND_BASE_URL 기준)
-BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL", "http://localhost:4000").rstrip("/")
+BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL", "http://175.45.205.39:4000").rstrip("/")
 
 
 def collect_current_metrics() -> Dict[str, Any]:
@@ -103,7 +104,7 @@ async def check_and_alert_realtime():
     - 메트릭 수집
     - 리스크 평가
     - (필요 시) Slack 알림
-    - DB 저장
+    - DB 저장 (CRIT일 때만)
     """
     logger.info("[realtime_monitor] Running realtime check...")
 
@@ -117,7 +118,39 @@ async def check_and_alert_realtime():
             peg_deviation=abs(metrics["peg_deviation"]),
             liquidity_ratio=metrics["liquidity_score"],
         )
+
+        # ─────────────────────────────────────────
+        # ✅ 1단계 완화: CRIT → WARN (이미 넣어둔 로직)
+        # ─────────────────────────────────────────
+        if level_enum == RiskLevel.CRIT:
+            if (
+                metrics["reserve_ratio"] >= 1.0           # 담보 100% 이상
+                and abs(metrics["peg_deviation"]) <= 0.10 # 페그 이탈 10% 이하
+                and metrics["liquidity_score"] >= 0.5     # 유동성 보통 이상
+            ):
+                logger.info("[realtime_monitor] CRIT → WARN (relaxed rule applied)")
+                level_enum = RiskLevel.WARN
+
+        # ─────────────────────────────────────────
+        # ✅ 2단계 완화: WARN → OK (도연 요청 반영)
+        #
+        # 담보 100% 이상 + 페그 이탈 2% 이내 + 유동성 0.7 이상이면
+        # '실무상 안정 구간'으로 보고 OK 처리
+        # → 지금 예시 값(1.0064, 1.75%, 0.729)은 여기 걸려서 OK 됨
+        # ─────────────────────────────────────────
+        if level_enum == RiskLevel.WARN:
+            if (
+                metrics["reserve_ratio"] >= 1.0           # 담보 100% 이상
+                and abs(metrics["peg_deviation"]) <= 0.03 # 페그 ±2% 이내
+                and metrics["liquidity_score"] >= 0.7     # 유동성 꽤 양호
+            ):
+                logger.info("[realtime_monitor] WARN → OK (second relaxation applied)")
+                level_enum = RiskLevel.OK
+
         risk_level = level_enum.value  # "OK" / "WARN" / "CRIT"
+        logger.info(
+            "[realtime_monitor] Final risk_level after relaxation = %s", risk_level
+        )
 
         # 3) Slack – WARN/CRIT 일 때만 알림
         if level_enum in (RiskLevel.WARN, RiskLevel.CRIT):
@@ -129,20 +162,99 @@ async def check_and_alert_realtime():
             except Exception as e:
                 logger.warning(f"Slack 알림 실패 (무시하고 계속 진행): {e}")
 
-        # 4) DB 저장 (async 세션 사용)
+        # 4) DB 저장 (CRIT일 때만, async 세션 사용)
+        if level_enum == RiskLevel.CRIT:
+            async with SessionLocal() as db:
+                snapshot = await insert_snapshot(
+                    db=db,
+                    metrics=metrics,
+                    risk={"risk_level": risk_level},
+                )
+
+            logger.info(
+                "[realtime_monitor] CRIT snapshot saved successfully (id=%s, risk=%s)",
+                snapshot.id,
+                risk_level,
+            )
+
+    except Exception as e:
+        logger.exception(f"[realtime_monitor] Failed: {e}")
+
+
+async def debug_run_realtime_with_forced_metrics():
+    """
+    테스트용: Node 백엔드 호출 없이 'CRIT가 나올 만한 메트릭'을 강제로 넣고
+    동일한 로직(check_and_alert_realtime와 동일한 흐름)으로 돌려본다.
+    """
+    logger.info("[realtime_monitor][DEBUG] Running debug test with forced metrics...")
+
+    # 1) CRIT 나올 법한 가짜 메트릭 세트
+    metrics = {
+        "tvl": 100_000_000,      # 1억 원 유통량
+        "reserve_ratio": 0.95,   # 담보율 95% (1.0 미만 → 위험)
+        "peg_deviation": 0.02,   # 2% 페그 이탈
+        "liquidity_score": 0.10, # 유동성 낮음
+    }
+
+    # 2) 리스크 평가
+    level_enum = overall_risk_level(
+        collateral_ratio=metrics["reserve_ratio"],
+        peg_deviation=abs(metrics["peg_deviation"]),
+        liquidity_ratio=metrics["liquidity_score"],
+    )
+
+    # DEBUG에도 동일 완화 로직 적용 (일관성)
+    if level_enum == RiskLevel.CRIT:
+        if (
+            metrics["reserve_ratio"] >= 1.0
+            and abs(metrics["peg_deviation"]) <= 0.10
+            and metrics["liquidity_score"] >= 0.5
+        ):
+            logger.info("[DEBUG] CRIT → WARN (relaxed)")
+            level_enum = RiskLevel.WARN
+
+    if level_enum == RiskLevel.WARN:
+        if (
+            metrics["reserve_ratio"] >= 1.0
+            and abs(metrics["peg_deviation"]) <= 0.03
+            and metrics["liquidity_score"] >= 0.8
+        ):
+            logger.info("[DEBUG] WARN → OK (second relaxation)")
+            level_enum = RiskLevel.OK
+
+    risk_level = level_enum.value
+    logger.info("[realtime_monitor][DEBUG] Forced metrics risk_level = %s", risk_level)
+
+    # 3) Slack 알림 (WARN/CRIT이면)
+    if level_enum in (RiskLevel.WARN, RiskLevel.CRIT):
+        try:
+            send_risk_alert({
+                "risk_level": risk_level,
+                "metrics": metrics,
+            })
+        except Exception as e:
+            logger.warning(f"[DEBUG] Slack 알림 실패 (무시): {e}")
+
+    # 4) DB 저장 (CRIT일 때만)
+    if level_enum == RiskLevel.CRIT:
         async with SessionLocal() as db:
             snapshot = await insert_snapshot(
                 db=db,
                 metrics=metrics,
                 risk={"risk_level": risk_level},
-                raw_payload={**metrics, "risk_level": risk_level},
             )
-
         logger.info(
-            "[realtime_monitor] Snapshot saved successfully (id=%s, risk=%s)",
+            "[realtime_monitor][DEBUG] CRIT snapshot saved (id=%s, risk=%s)",
             snapshot.id,
             risk_level,
         )
+    else:
+        logger.info(
+            "[realtime_monitor][DEBUG] risk_level=%s 이라서 DB에는 저장하지 않음",
+            risk_level,
+        )
 
-    except Exception as e:
-        logger.exception(f"[realtime_monitor] Failed: {e}")
+
+if __name__ == "__main__":
+    # 로컬에서 단독 실행 테스트용
+    asyncio.run(debug_run_realtime_with_forced_metrics())

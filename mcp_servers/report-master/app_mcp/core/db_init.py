@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy import text   # ✅ 이 줄 추가
 from app_mcp.core.config import get_settings
 
 @asynccontextmanager
@@ -39,15 +40,26 @@ async_session = SessionLocal
 # 3) Declarative Base
 class Base(DeclarativeBase):
     pass
-# ✅ 모든 테이블을 stablecoin 스키마에 생성하도록 지정
-Base.metadata.schema = "stablecoin"
 
 # 4) DB 초기화
 async def init_db():
-    # 모델 모듈들을 import 해서 Base의 서브클래스들이 등록되도록 함
+    """
+    - stablecoin 스키마 생성 (PostgreSQL일 때)
+    - search_path 를 stablecoin 으로 설정
+    - Base.metadata.create_all() 로 테이블 생성
+    """
     from app_mcp.models import realtime_risk_snapshot  # 다른 모델 있으면 옆에 추가
-    from app_mcp.models import human_review_task 
+    from app_mcp.models import human_review_task
+
     async with engine.begin() as conn:
+        # ✅ PostgreSQL일 때만 스키마 생성 + search_path 설정
+        if engine.url.get_backend_name().startswith("postgresql"):
+            # stablecoin 스키마 생성
+            await conn.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS stablecoin")
+            # search_path를 stablecoin으로 설정
+            await conn.exec_driver_sql("SET search_path TO stablecoin")
+
+        # 테이블 생성 (지금 search_path 기준으로 생성됨)
         await conn.run_sync(Base.metadata.create_all)
 
 # 5) FastAPI 의존성

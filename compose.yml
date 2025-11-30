@@ -1,0 +1,158 @@
+version: "3.9"
+
+services:
+  # 1) 웹 프론트엔드 (Flask 대시보드)
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: koscom_web
+    command: ["python", "frontend/web_chat_app.py"]
+    ports:
+      - "5100:5100"
+    env_file:
+      - .env
+    environment:
+      # MCP 게이트웨이들: 도커 네트워크 기준 주소
+      BANK_MONITORING_MCP: http://bank-monitoring:5300/mcp
+      KRW_RESERVE_MCP: http://krw-reserve:5400/mcp
+      tx_AUDIT_MCP: http://tx-audit:5200/mcp
+      K_WON_MCP_URL: http://kwon-reports-gateway:5900/mcp
+      # 데이터 API 백엔드 (루트 .env의 BACKEND_BASE_URL을 우선 사용)
+      BACKEND_URL: ${BACKEND_BASE_URL:-http://175.45.205.39:4000}
+      
+    depends_on:
+      - bank-monitoring
+      - krw-reserve
+      - tx-audit
+      - kwon-reports-gateway
+
+  # 2) Bank Monitoring MCP HTTP Gateway (Flask, 5300)
+  bank-monitoring:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: koscom_bank_monitoring
+    command: ["python", "mcp_servers/bank_monitering/mcp_http_gateway.py"]
+    env_file:
+      - .env
+      - ./mcp_servers/bank_monitering/.env
+    environment:
+      # 컨테이너 기준으로 Postgres 위치 지정 (호스트는 'postgres' 서비스)
+      POSTGRES_HOST: postgres
+      PG_HOST: postgres
+    depends_on:
+      - postgres
+
+  # 3) KRW Full Reserve MCP HTTP Gateway (Flask, 5400)
+  krw-reserve:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: koscom_krw_reserve
+    command: ["python", "mcp_servers/krw-full-reserve/mcp_http_gateway.py"]
+    env_file:
+      - .env
+      - ./mcp_servers/krw-full-reserve/.env
+    environment:
+      POSTGRES_HOST: postgres
+      PG_HOST: postgres
+    depends_on:
+      - postgres
+
+  # 4) TX Audit MCP HTTP Gateway (Flask, 5200)
+  tx-audit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: koscom_tx_audit
+    command: ["python", "mcp_servers/tx_audit/audit_gateway.py"]
+    env_file:
+      - .env
+      - ./mcp_servers/tx_audit/.env
+    # InfluxDB를 쓸 경우, 루트 .env에 INFLUX_* 를 넣어두면 여기서 자동으로 읽음
+    # (필수는 아님, 안 넣으면 Influx 없이도 동작)
+    depends_on:
+      - influxdb
+      - influx-proxy
+
+  # 5) K-WON Reports FastAPI 백엔드 (uvicorn, 8000)
+  kwon-reports-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: koscom_kwon_reports_backend
+    command: ["python", "mcp_servers/report-master/mcp_server.py"]
+    env_file:
+      - .env
+      - ./mcp_servers/report-master/.env
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8000
+      # DATABASE_URL 은 mcp_servers/report-master/.env 에서 설정 (호스트만 'postgres'로 수정)
+    depends_on:
+      - postgres
+    ports:
+      - "8000:8000"
+    volumes:
+      # 보고서 산출물 폴더는 호스트와 공유
+      - ./mcp_servers/report-master/artifacts:/app/mcp_servers/report-master/artifacts
+
+  # 6) K-WON Reports MCP Gateway (Flask, 5900)
+  kwon-reports-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: koscom_kwon_reports_gateway
+    command: ["python", "mcp_servers/report-master/gateway.py"]
+    env_file:
+      - .env
+      - ./mcp_servers/report-master/.env
+    environment:
+      MCP_BACKEND_BASE: http://kwon-reports-backend:8000
+    depends_on:
+      - kwon-reports-backend
+    ports:
+      - "5900:5900"
+
+  # 7) Postgres DB (모든 MCP가 공용으로 사용)
+  postgres:
+    image: postgres:16-alpine
+    container_name: koscom_postgres
+    env_file:
+      - ./mcp_servers/bank_monitering/.env
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  # 8) InfluxDB (온체인 감사용 시계열 DB)
+  influxdb:
+    image: influxdb:latest
+    container_name: influxdb
+    expose:
+      - "8086"
+    volumes:
+      - influxdb2-data:/var/lib/influxdb2
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: StrongP@ssw0rd
+      DOCKER_INFLUXDB_INIT_ORG: dancom
+      DOCKER_INFLUXDB_INIT_BUCKET: my-bucket
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: SOME_LONG_RANDOM_TOKEN
+
+  # 9) InfluxDB 앞단 Nginx 프록시 (삭제 API 차단)
+  influx-proxy:
+    image: nginx:latest
+    container_name: influx-proxy
+    ports:
+      - "8086:80"
+    volumes:
+      - ./infra/docker/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - influxdb
+
+volumes:
+  postgres-data:
+  influxdb2-data:

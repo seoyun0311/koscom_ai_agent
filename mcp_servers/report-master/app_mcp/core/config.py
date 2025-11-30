@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     env: str = Field(default="dev")
 
     # DB: MySQL 미사용 → SQLite Async
-    database_url: str = Field(default="sqlite+aiosqlite:///./mcp.db")
+    database_url: str = Field(..., alias="DATABASE_URL")
 
     # Provider (없으면 mock)
     provider_reserves_url: str | None = Field(default=None)
