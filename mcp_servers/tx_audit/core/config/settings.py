@@ -23,8 +23,8 @@ class Settings(BaseSettings):
     ETHERSCAN_OFFSET: int = 500
     ETHERSCAN_RATE_SLEEP: float = 0.05
     POLL_INTERVAL_SEC: int = 15
-    COLLECT_MAX_PAGES: int | None = 20
-    COLLECT_MAX_SECONDS: int | None = 60
+    COLLECT_MAX_PAGES: int | None = 60
+    COLLECT_MAX_SECONDS: int | None = 100
 
     # Data paths
     DATA_PATH: Path = BASE_DIR / "data"

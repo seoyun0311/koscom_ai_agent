@@ -6,9 +6,9 @@
 """
 
 # 담보율 임계값
-COVERAGE_CRITICAL = 98.0  # 98% 미만: 위험
-COVERAGE_WARNING = 100.0  # 100% 미만: 주의
-COVERAGE_OPTIMAL = 105.0  # 105% 이상: 최적
+COVERAGE_CRITICAL = 103.0  # 103% 미만: 위험
+COVERAGE_WARNING = 110.0  # 110% 미만: 주의
+COVERAGE_OPTIMAL = 115.0  # 115% 이상: 최적
 
 # 집중도 리스크 임계값
 CONCENTRATION_MAX_SINGLE = 50.0  # 단일 기관 최대 50%

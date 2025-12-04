@@ -3,7 +3,8 @@
 from __future__ import annotations
 from typing import Any, Dict
 import json
-from core.db.pool import get_pool   # ← 올바른 import
+from core.db.pool import get_pool
+
 
 
 # ─────────────────────────────────────────────

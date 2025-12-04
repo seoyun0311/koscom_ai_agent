@@ -95,17 +95,40 @@ def fetch_transactions_incremental(start_block: int, page: int, offset: int):
             f"&page={page}&offset={offset}&sort=asc&apikey={ETHERSCAN_API_KEY}"
         )
 
+    timeout_sec = 180  # ✅ 여기서 한 번만 정의
+
     try:
-        resp = requests.get(url, timeout=20)
+        logger.info(f"Fetching from: {url} (timeout={timeout_sec}s)")
+        t0 = time.time()
+        resp = requests.get(url, timeout=timeout_sec)
+        elapsed = time.time() - t0
+        logger.info(f"HTTP done in {elapsed:.2f}s, status={resp.status_code}")
         data = resp.json()
     except Exception as exc:
         logger.error(f"Failed to fetch data source: {exc}")
+        return []
+
+    # 🔹 로컬 모드: 응답 형식 다양하게 허용
+    if USE_LOCAL_SFIAT:
+        if isinstance(data, list):
+            return data
+
+        if isinstance(data, dict):
+            if "result" in data and isinstance(data["result"], list):
+                return data["result"]
+            if "data" in data and isinstance(data["data"], list):
+                return data["data"]
+            if "items" in data and isinstance(data["items"], list):
+                return data["items"]
+
+        logger.debug("Unexpected local API response: %s", json.dumps(data, indent=2))
         return []
 
     if data.get("status") != "1":
         logger.debug(json.dumps(data, indent=2))
         return []
     return data.get("result", [])
+
 
 
 def store_events(events: list[dict]) -> tuple[int | None, int, int]:

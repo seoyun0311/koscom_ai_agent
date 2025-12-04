@@ -1,73 +1,68 @@
 # krw-full-reserve/mcp_http_gateway.py
 """
 KRW Full Reserve MCP HTTP Gateway
-
-web_chat_app.py 에서 KRW_RESERVE_MCP = "http://localhost:5400/mcp"
-로 호출하는 JSON-RPC 형식을 받아서,
-내부의 KRWS 툴(get_onchain_state, get_offchain_reserves 등)을 호출해주는 HTTP 서버.
 """
-# krw-full-reserve/mcp_http_gateway.py
 
 from __future__ import annotations
 
 import asyncio
 import json
 import traceback
+import threading
 from typing import Dict, Any
 
 from flask import Flask, request, jsonify
 
 # ─────────────────────────────────────────────
-# KRW fullreserve 툴 함수들 임포트
+# 글로벌 이벤트 루프 생성 + 백그라운드 스레드에서 실행
+# ─────────────────────────────────────────────
+loop = asyncio.new_event_loop()
+threading.Thread(target=loop.run_forever, daemon=True).start()
+
+
+# ─────────────────────────────────────────────
+# KRW fullreserve 툴 함수들
 # ─────────────────────────────────────────────
 from app_mcp.tools.onchain import get_onchain_state
 from app_mcp.tools.offchain import get_offchain_reserves
 from app_mcp.tools.coverage import check_coverage
 from app_mcp.tools.report import get_risk_report
-from app_mcp.tools.history import get_full_reserve_history  # ✅ 추가
+from app_mcp.tools.history import get_full_reserve_history
 
+
+# Flask 앱
 app = Flask(__name__)
 
-# 사용할 툴 매핑 (MCP tool name → Python 함수)
+# MCP 툴 매핑
 TOOLS: Dict[str, Any] = {
     "get_onchain_state": get_onchain_state,
     "get_offchain_reserves": get_offchain_reserves,
     "check_coverage": check_coverage,
     "get_risk_report": get_risk_report,
-    "get_full_reserve_history": get_full_reserve_history,  # ✅ 추가
+    "get_full_reserve_history": get_full_reserve_history,
 }
 
 
-
+# ─────────────────────────────────────────────
+# async 함수 실행 안전 헬퍼
+# ─────────────────────────────────────────────
 def _run_async(func, **kwargs):
     """
-    async 함수면 asyncio.run으로 실행하고,
-    sync 함수면 바로 실행하는 헬퍼.
+    모든 async 함수는 글로벌 event loop 에서 thread-safe 로 실행한다.
     """
     if asyncio.iscoroutinefunction(func):
-        return asyncio.run(func(**kwargs))
+        coro = func(**kwargs)
+        future = asyncio.run_coroutine_threadsafe(coro, loop)
+        return future.result()
     else:
         return func(**kwargs)
 
 
+# ─────────────────────────────────────────────
+# MCP HTTP 진입점
+# ─────────────────────────────────────────────
 @app.route("/mcp", methods=["POST"])
 def mcp_call():
-    """
-    web_chat_app.call_krw_reserve_mcp 에서 보내는 JSON-RPC 형식:
-
-    {
-        "jsonrpc": "2.0",
-        "method": "tools/call",
-        "params": {
-            "name": "get_offchain_reserves",
-            "arguments": { ... }
-        },
-        "id": 1
-    }
-
-    이걸 파싱해서 TOOLS[name](**arguments)를 호출하고,
-    다시 JSON-RPC 형식으로 돌려준다.
-    """
     try:
         payload = request.get_json(silent=True) or {}
         print(f"🛰 KRW HTTP MCP 수신 payload: {payload}")
@@ -89,18 +84,7 @@ def mcp_call():
         tool_name = params.get("name")
         arguments = params.get("arguments") or {}
 
-        if not tool_name:
-            return jsonify({
-                "jsonrpc": "2.0",
-                "id": rpc_id,
-                "error": {
-                    "code": -32602,
-                    "message": "Missing tool name"
-                }
-            }), 400
-
-        func = TOOLS.get(tool_name)
-        if not func:
+        if tool_name not in TOOLS:
             return jsonify({
                 "jsonrpc": "2.0",
                 "id": rpc_id,
@@ -110,18 +94,16 @@ def mcp_call():
                 }
             }), 400
 
-        # 🔧 실제 호출 내용 로그
+        func = TOOLS[tool_name]
+
         print(f"🔧 KRW MCP 호출: {tool_name}({arguments})")
 
-        # 🩹 get_risk_report는 format 인자를 정의하지 않았으므로 방어적으로 제거
         if tool_name == "get_risk_report" and "format" in arguments:
             arguments.pop("format", None)
 
-        # 실제 툴 실행
+        # async 서브루틴 실행
         result = _run_async(func, **arguments)
 
-        # web_chat_app.call_krw_reserve_mcp 에서 기대하는 MCP 응답 형식:
-        # data["result"]["content"][0]["text"] 에 JSON 문자열이 들어가 있음
         return jsonify({
             "jsonrpc": "2.0",
             "id": rpc_id,
@@ -143,7 +125,7 @@ def mcp_call():
         traceback.print_exc()
         return jsonify({
             "jsonrpc": "2.0",
-            "id": None,
+            "id": rpc_id,
             "error": {
                 "code": -32000,
                 "message": str(e),
@@ -151,6 +133,9 @@ def mcp_call():
         }), 500
 
 
+# ─────────────────────────────────────────────
+# Health
+# ─────────────────────────────────────────────
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({
@@ -159,6 +144,9 @@ def health():
     })
 
 
+# ─────────────────────────────────────────────
+# 서버 시작
+# ─────────────────────────────────────────────
 if __name__ == "__main__":
     print("=" * 60)
     print("🚀 KRW Full Reserve MCP HTTP Gateway 시작")

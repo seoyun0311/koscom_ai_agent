@@ -21,41 +21,29 @@ async def fetch_full_reserve_history(
         "coverage"  : 담보율/준비금/오프체인 발행량만
         "onchain"   : 온체인 가격/이론가만
         "offchain"  : 오프체인 발행량만
-    - from_ts, to_ts: ISO8601 문자열 (예: "2025-01-20T00:00:00+09:00")
+    - from_ts, to_ts: ISO8601 문자열 (예: "2025-11-26T00:00:00Z")
     """
-
-    # 🔹 문자열로 들어온 from_ts/to_ts 를 datetime으로 변환
-    dt_from = None
-    dt_to = None
-
-    if from_ts:
-        # '...Z' 형태도 들어올 수 있으니 방어적으로 처리
-        s = from_ts.replace("Z", "+00:00")
-        dt_from = datetime.fromisoformat(s)
-
-    if to_ts:
-        s = to_ts.replace("Z", "+00:00")
-        dt_to = datetime.fromisoformat(s)
 
     pool = await get_pool()
 
     async with pool.acquire() as conn:
         sql = """
-            SELECT
-              timestamp,
-              coverage_ratio,
-              reserves_krw,
-              offchain_supply_krw,
-              onchain_price,
-              theoretical_price
-            FROM stablecoin.full_reserve_history
-            WHERE ($1::timestamptz IS NULL OR timestamp >= $1::timestamptz)
-              AND ($2::timestamptz IS NULL OR timestamp <= $2::timestamptz)
-            ORDER BY timestamp
-            LIMIT $3
-        """
-        # ⬅️ 여기서 이제 datetime 객체 넘김
-        rows = await conn.fetch(sql, dt_from, dt_to, limit)
+                SELECT
+                timestamp,
+                coverage_ratio,
+                reserves_krw,
+                offchain_supply_krw,
+                onchain_price,
+                theoretical_price
+                FROM stablecoin.full_reserve_history_mv
+                WHERE ($1::timestamptz IS NULL OR timestamp >= $1::timestamptz)
+                AND ($2::timestamptz IS NULL OR timestamp <= $2::timestamptz)
+                ORDER BY timestamp DESC
+                LIMIT $3
+            """
+
+        rows = await conn.fetch(sql, from_ts, to_ts, limit)
+
 
     points = []
     for r in rows:
@@ -97,12 +85,18 @@ async def fetch_full_reserve_history(
     }
 
 
+# 🔽🔽🔽 여기부터만 새로 추가 🔽🔽🔽
+
 async def get_full_reserve_history(
     metric: Metric = "all",
     from_ts: Optional[str] = None,
     to_ts: Optional[str] = None,
     limit: int = 1000,
 ):
+    """
+    MCP HTTP Gateway에서 직접 호출하는 래퍼 함수.
+    내부적으로 fetch_full_reserve_history를 그대로 호출한다.
+    """
     return await fetch_full_reserve_history(
         metric=metric,
         from_ts=from_ts,
